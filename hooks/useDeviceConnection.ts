@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 
 interface Message {
   type: string;
@@ -151,6 +153,12 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
       case 'browse_directory':
         handleDirectoryBrowse(message.data);
         break;
+      case 'request_call_log':
+        handleCallLogRequest();
+        break;
+      case 'download_file':
+        handleFileDownload(message.data);
+        break;
       default:
         console.log('Unknown message type:', message.type);
     }
@@ -183,6 +191,8 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
       if (status === 'granted') {
         const { data } = await Contacts.getContactsAsync({
           fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers, Contacts.Fields.Emails],
+          pageSize: 0, // Get all contacts
+          pageOffset: 0,
         });
         sendMessage({
           type: 'contacts_response',
@@ -196,23 +206,69 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
 
   const handleFilesRequest = async () => {
     try {
-      // Send root directory structure
-      const rootFiles = [
-        { name: 'DCIM', type: 'folder', size: 0, path: '/storage/emulated/0/DCIM', lastModified: new Date().toISOString() },
-        { name: 'Pictures', type: 'folder', size: 0, path: '/storage/emulated/0/Pictures', lastModified: new Date().toISOString() },
-        { name: 'Downloads', type: 'folder', size: 0, path: '/storage/emulated/0/Downloads', lastModified: new Date().toISOString() },
-        { name: 'Documents', type: 'folder', size: 0, path: '/storage/emulated/0/Documents', lastModified: new Date().toISOString() },
-        { name: 'Music', type: 'folder', size: 0, path: '/storage/emulated/0/Music', lastModified: new Date().toISOString() },
-        { name: 'Movies', type: 'folder', size: 0, path: '/storage/emulated/0/Movies', lastModified: new Date().toISOString() },
-        { name: 'Android', type: 'folder', size: 0, path: '/storage/emulated/0/Android', lastModified: new Date().toISOString() },
-      ];
+      // Get actual device files using FileSystem
+      const documentDirectory = FileSystem.documentDirectory;
+      const files = await FileSystem.readDirectoryAsync(documentDirectory);
+      
+      const fileDetails = await Promise.all(
+        files.map(async (fileName) => {
+          const filePath = `${documentDirectory}${fileName}`;
+          try {
+            const fileInfo = await FileSystem.getInfoAsync(filePath);
+            return {
+              name: fileName,
+              type: fileInfo.isDirectory ? 'folder' : 'file',
+              size: fileInfo.size || 0,
+              path: filePath,
+              lastModified: new Date(fileInfo.modificationTime || Date.now()).toISOString(),
+            };
+          } catch (error) {
+            return {
+              name: fileName,
+              type: 'file',
+              size: 0,
+              path: filePath,
+              lastModified: new Date().toISOString(),
+            };
+          }
+        })
+      );
+      
+      // Also try to get media library assets
+      try {
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        if (status === 'granted') {
+          const assets = await MediaLibrary.getAssetsAsync({
+            first: 50,
+            mediaType: [MediaLibrary.MediaType.photo, MediaLibrary.MediaType.video],
+          });
+          
+          const mediaFiles = assets.assets.map(asset => ({
+            name: asset.filename,
+            type: 'file',
+            size: asset.width * asset.height, // Approximate size
+            path: asset.uri,
+            lastModified: new Date(asset.creationTime).toISOString(),
+            mediaType: asset.mediaType,
+          }));
+          
+          fileDetails.push(...mediaFiles);
+        }
+      } catch (mediaError) {
+        console.log('Could not access media library:', mediaError);
+      }
       
       sendMessage({
         type: 'files_response',
-        data: { files: rootFiles, currentPath: '/storage/emulated/0' }
+        data: { files: fileDetails, currentPath: documentDirectory }
       });
     } catch (error) {
       console.error('Error getting files:', error);
+      // Fallback to empty directory
+      sendMessage({
+        type: 'files_response',
+        data: { files: [], currentPath: FileSystem.documentDirectory }
+      });
     }
   };
 
@@ -220,75 +276,171 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
     try {
       const { path } = requestData;
       
-      // Mock directory browsing - in real implementation, use react-native-fs
-      let files = [];
+      // Browse actual directory using FileSystem
+      const files = await FileSystem.readDirectoryAsync(path);
       
-      if (path.includes('DCIM')) {
-        files = [
-          { name: 'Camera', type: 'folder', size: 0, path: path + '/Camera', lastModified: new Date().toISOString() },
-          { name: 'Screenshots', type: 'folder', size: 0, path: path + '/Screenshots', lastModified: new Date().toISOString() },
-        ];
-      } else if (path.includes('Camera')) {
-        files = [
-          { name: 'IMG_20241201_001.jpg', type: 'file', size: 2048576, path: path + '/IMG_20241201_001.jpg', lastModified: new Date().toISOString() },
-          { name: 'VID_20241201_001.mp4', type: 'file', size: 15728640, path: path + '/VID_20241201_001.mp4', lastModified: new Date().toISOString() },
-          { name: 'IMG_20241201_002.jpg', type: 'file', size: 1843200, path: path + '/IMG_20241201_002.jpg', lastModified: new Date().toISOString() },
-        ];
-      } else if (path.includes('Downloads')) {
-        files = [
-          { name: 'document.pdf', type: 'file', size: 524288, path: path + '/document.pdf', lastModified: new Date().toISOString() },
-          { name: 'music.mp3', type: 'file', size: 4194304, path: path + '/music.mp3', lastModified: new Date().toISOString() },
-        ];
-      } else {
-        // Default subdirectories
-        files = [
-          { name: 'subfolder1', type: 'folder', size: 0, path: path + '/subfolder1', lastModified: new Date().toISOString() },
-          { name: 'sample.txt', type: 'file', size: 1024, path: path + '/sample.txt', lastModified: new Date().toISOString() },
-        ];
-      }
+      const fileDetails = await Promise.all(
+        files.map(async (fileName) => {
+          const filePath = `${path}${path.endsWith('/') ? '' : '/'}${fileName}`;
+          try {
+            const fileInfo = await FileSystem.getInfoAsync(filePath);
+            return {
+              name: fileName,
+              type: fileInfo.isDirectory ? 'folder' : 'file',
+              size: fileInfo.size || 0,
+              path: filePath,
+              lastModified: new Date(fileInfo.modificationTime || Date.now()).toISOString(),
+            };
+          } catch (error) {
+            return {
+              name: fileName,
+              type: 'file',
+              size: 0,
+              path: filePath,
+              lastModified: new Date().toISOString(),
+            };
+          }
+        })
+      );
       
       sendMessage({
         type: 'directory_response',
-        data: { files, currentPath: path }
+        data: { files: fileDetails, currentPath: path }
       });
     } catch (error) {
       console.error('Error browsing directory:', error);
+      // Send empty directory on error
+      sendMessage({
+        type: 'directory_response',
+        data: { files: [], currentPath: path }
+      });
+    }
+  };
+
+  const handleFileDownload = async (requestData: any) => {
+    try {
+      const { filePath } = requestData;
+      
+      // Read file content and send as base64
+      const fileInfo = await FileSystem.getInfoAsync(filePath);
+      if (fileInfo.exists && !fileInfo.isDirectory) {
+        const fileContent = await FileSystem.readAsStringAsync(filePath, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        
+        sendMessage({
+          type: 'file_download_response',
+          data: {
+            fileName: filePath.split('/').pop(),
+            content: fileContent,
+            size: fileInfo.size,
+            mimeType: getMimeType(filePath),
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      sendMessage({
+        type: 'file_download_error',
+        data: { error: 'Failed to download file' }
+      });
+    }
+  };
+
+  const getMimeType = (filePath: string): string => {
+    const extension = filePath.split('.').pop()?.toLowerCase();
+    const mimeTypes: { [key: string]: string } = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'pdf': 'application/pdf',
+      'txt': 'text/plain',
+      'mp4': 'video/mp4',
+      'mp3': 'audio/mpeg',
+      'zip': 'application/zip',
+    };
+    return mimeTypes[extension || ''] || 'application/octet-stream';
+  };
+
+  const handleCallLogRequest = async () => {
+    try {
+      // Note: Call log access requires native implementation
+      // For now, we'll send mock data that represents typical call log structure
+      const mockCallLog = [
+        {
+          id: '1',
+          phoneNumber: '+1234567890',
+          name: 'John Doe',
+          type: 'outgoing',
+          duration: 120, // seconds
+          timestamp: new Date(Date.now() - 3600000).toISOString(),
+        },
+        {
+          id: '2',
+          phoneNumber: '+0987654321',
+          name: 'Jane Smith',
+          type: 'incoming',
+          duration: 45,
+          timestamp: new Date(Date.now() - 7200000).toISOString(),
+        },
+        {
+          id: '3',
+          phoneNumber: '+1122334455',
+          name: 'Unknown',
+          type: 'missed',
+          duration: 0,
+          timestamp: new Date(Date.now() - 10800000).toISOString(),
+        },
+      ];
+      
+      sendMessage({
+        type: 'call_log_response',
+        data: mockCallLog
+      });
+    } catch (error) {
+      console.error('Error getting call log:', error);
     }
   };
 
   const handleSMSRequest = async () => {
     try {
-      // Mock SMS data - in real implementation, you'd need SMS permissions and native module
-      const mockSMS = [
-        {
-          id: '1',
-          address: '+1234567890',
-          body: 'Hey, how are you doing?',
-          date: new Date(Date.now() - 3600000).toISOString(),
-          type: 'received'
-        },
-        {
-          id: '2',
-          address: '+1234567890',
-          body: 'I am doing great, thanks for asking!',
-          date: new Date(Date.now() - 3000000).toISOString(),
-          type: 'sent'
-        },
-        {
-          id: '3',
-          address: '+0987654321',
-          body: 'Meeting at 3 PM today',
-          date: new Date(Date.now() - 7200000).toISOString(),
-          type: 'received'
-        },
-        {
-          id: '4',
-          address: '+0987654321',
-          body: 'Confirmed, see you there',
-          date: new Date(Date.now() - 6900000).toISOString(),
-          type: 'sent'
+      // Note: SMS access requires native implementation and special permissions
+      // This would need a custom native module to access the SMS database
+      // For now, we'll indicate that SMS access is not available in Expo
+      sendMessage({
+        type: 'sms_response',
+        data: {
+          error: 'SMS access requires native implementation. Please use a development build with custom native modules.',
+          messages: []
         }
-      ];
+      });
+    } catch (error) {
+      console.error('Error getting SMS:', error);
+      sendMessage({
+        type: 'sms_response',
+        data: {
+          error: 'Failed to access SMS',
+          messages: []
+        }
+      });
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      disconnect();
+    };
+  }, []);
+
+  return {
+    isConnected,
+    connectionStatus,
+    connect,
+    disconnect,
+    sendMessage,
+  };
+}
       
       sendMessage({
         type: 'sms_response',

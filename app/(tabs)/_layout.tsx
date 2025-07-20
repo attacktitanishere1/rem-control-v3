@@ -33,6 +33,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="call-log"
+        options={{
+          title: 'Calls',
+          tabBarIcon: ({ size, color }) => (
+            <Ionicons name="call" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
