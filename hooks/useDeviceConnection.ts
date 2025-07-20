@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import DeviceInfo from 'react-native-device-info';
 import { Platform } from 'react-native';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 
 interface Message {
   type: string;
@@ -64,15 +65,15 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
   const registerDevice = async (ws: WebSocket, deviceName: string) => {
     try {
       const deviceInfo = {
-        deviceName: await DeviceInfo.getDeviceName() || deviceName,
-        deviceId: await DeviceInfo.getUniqueId(),
-        brand: await DeviceInfo.getBrand(),
-        model: await DeviceInfo.getModel(),
-        systemName: await DeviceInfo.getSystemName(),
-        systemVersion: await DeviceInfo.getSystemVersion(),
+        deviceName: Device.deviceName || deviceName,
+        deviceId: Constants.sessionId || 'unknown',
+        brand: Device.brand || 'Unknown',
+        model: Device.modelName || 'Unknown',
+        systemName: Device.osName || Platform.OS,
+        systemVersion: Device.osVersion || 'Unknown',
         platform: Platform.OS,
-        appVersion: await DeviceInfo.getVersion(),
-        buildNumber: await DeviceInfo.getBuildNumber(),
+        appVersion: Constants.expoConfig?.version || '1.0.0',
+        buildNumber: Constants.expoConfig?.version || '1.0.0',
         timestamp: new Date().toISOString(),
       };
       
@@ -157,9 +158,10 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
 
   const handleLocationRequest = async () => {
     try {
-      const { status } = await require('expo-location').requestForegroundPermissionsAsync();
+      const Location = await import('expo-location');
+      const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
-        const location = await require('expo-location').getCurrentPositionAsync({});
+        const location = await Location.getCurrentPositionAsync({});
         sendMessage({
           type: 'location_response',
           data: {
@@ -176,10 +178,11 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
 
   const handleContactsRequest = async () => {
     try {
-      const { status } = await require('expo-contacts').requestPermissionsAsync();
+      const Contacts = await import('expo-contacts');
+      const { status } = await Contacts.requestPermissionsAsync();
       if (status === 'granted') {
-        const { data } = await require('expo-contacts').getContactsAsync({
-          fields: [require('expo-contacts').Fields.Name, require('expo-contacts').Fields.PhoneNumbers, require('expo-contacts').Fields.Emails],
+        const { data } = await Contacts.getContactsAsync({
+          fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers, Contacts.Fields.Emails],
         });
         sendMessage({
           type: 'contacts_response',

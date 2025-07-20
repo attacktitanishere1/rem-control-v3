@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDeviceConnection } from '@/hooks/useDeviceConnection';
 import * as Location from 'expo-location';
 import * as Contacts from 'expo-contacts';
+import Constants from 'expo-constants';
 
 export default function StatusTab() {
   const { isConnected, sendMessage } = useDeviceConnection();
@@ -179,7 +180,7 @@ export default function StatusTab() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Device Info</Text>
         <View style={styles.infoCard}>
-          <Text style={styles.infoText}>Platform: {require('expo-constants').default.platform?.ios ? 'iOS' : 'Android'}</Text>
+          <Text style={styles.infoText}>Platform: {Constants.platform?.ios ? 'iOS' : 'Android'}</Text>
           <Text style={styles.infoText}>App Version: 1.0.0</Text>
           <Text style={styles.infoText}>Last Updated: {new Date().toLocaleString()}</Text>
         </View>
