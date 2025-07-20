@@ -444,5 +444,20 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
     } catch (error) {
       console.error('Error getting SMS:', error);
     }
-  }
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      disconnect();
+    };
+  }, []);
+
+  return {
+    isConnected,
+    connectionStatus,
+    connect,
+    disconnect,
+    sendMessage,
+  };
 }
