@@ -79,6 +79,12 @@
                         </button>
                     </li>
                     <li>
+                        <button class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium rounded-md" data-section="screen">
+                            <i class="fas fa-desktop w-5 h-5 mr-3 text-gray-400"></i>
+                            Screen Mirror
+                        </button>
+                    </li>
+                    <li>
                         <button class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium rounded-md" data-section="microphone">
                             <i class="fas fa-microphone w-5 h-5 mr-3 text-gray-400"></i>
                             Microphone
@@ -192,6 +198,57 @@
                         <div id="map" class="h-96 rounded-lg border border-gray-200 mb-4"></div>
                         <div id="location-info" class="bg-gray-50 rounded-lg p-4">
                             <p class="text-gray-500">No location data available</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Screen Mirror Section -->
+                <div id="screen-section" class="content-section">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900">Screen Mirror</h3>
+                            <div class="flex space-x-2">
+                                <button id="take-screenshot" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-camera mr-2"></i>
+                                    Screenshot
+                                </button>
+                                <button id="start-mirroring" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                                    <i class="fas fa-play mr-2"></i>
+                                    Start Mirror
+                                </button>
+                                <button id="stop-mirroring" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors" style="display: none;">
+                                    <i class="fas fa-stop mr-2"></i>
+                                    Stop Mirror
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="screen-display" class="border border-gray-200 rounded-lg bg-gray-50 flex items-center justify-center" style="height: 600px;">
+                            <div class="text-center text-gray-500">
+                                <i class="fas fa-mobile-alt text-6xl mb-4 block text-gray-300"></i>
+                                <p class="text-lg font-medium">No Screen Data</p>
+                                <p class="text-sm">Take a screenshot or start mirroring to view device screen</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <span class="text-sm text-gray-600">Quality:</span>
+                                <select id="screen-quality" class="border border-gray-300 rounded px-2 py-1 text-sm">
+                                    <option value="high">High (100%)</option>
+                                    <option value="medium" selected>Medium (75%)</option>
+                                    <option value="low">Low (50%)</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center space-x-4">
+                                <span class="text-sm text-gray-600">Refresh Rate:</span>
+                                <select id="refresh-rate" class="border border-gray-300 rounded px-2 py-1 text-sm">
+                                    <option value="1000">1 FPS</option>
+                                    <option value="500" selected>2 FPS</option>
+                                    <option value="333">3 FPS</option>
+                                    <option value="200">5 FPS</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -375,9 +432,21 @@
 
                         <!-- File List -->
                         <div id="file-browser" class="max-h-96 overflow-y-auto">
-                            <div class="p-6 text-center text-gray-500">
-                                <i class="fas fa-folder-open text-4xl mb-2 block text-gray-300"></i>
-                                <p>Click "Refresh" to browse device files</p>
+                            <div class="p-4">
+                                <div class="text-center text-gray-500 mb-4">
+                                    <i class="fas fa-folder-open text-4xl mb-2 block text-gray-300"></i>
+                                    <p>Click "Refresh" to browse device files</p>
+                                </div>
+                                
+                                <!-- File Upload Area -->
+                                <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+                                    <input type="file" id="file-upload" multiple class="hidden">
+                                    <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                                    <p class="text-sm text-gray-600 mb-2">Upload files to device</p>
+                                    <button onclick="document.getElementById('file-upload').click()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                                        Choose Files
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
