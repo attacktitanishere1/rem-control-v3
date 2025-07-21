@@ -159,6 +159,15 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
       case 'download_file':
         handleFileDownload(message.data);
         break;
+      case 'share_file':
+        handleFileShare(message.data);
+        break;
+      case 'pick_document':
+        handlePickDocument();
+        break;
+      case 'request_file_permissions':
+        requestFilePermissions();
+        break;
       default:
         console.log('Unknown message type:', message.type);
     }
@@ -206,68 +215,109 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
 
   const handleFilesRequest = async () => {
     try {
-      // Get actual device files using FileSystem
-      const documentDirectory = FileSystem.documentDirectory;
-      const files = await FileSystem.readDirectoryAsync(documentDirectory);
+      // Request media library permissions first
+      const { status: mediaStatus } = await MediaLibrary.requestPermissionsAsync();
       
-      const fileDetails = await Promise.all(
-        files.map(async (fileName) => {
-          const filePath = `${documentDirectory}${fileName}`;
-          try {
-            const fileInfo = await FileSystem.getInfoAsync(filePath);
-            return {
-              name: fileName,
-              type: fileInfo.isDirectory ? 'folder' : 'file',
-              size: fileInfo.size || 0,
-              path: filePath,
-              lastModified: new Date(fileInfo.modificationTime || Date.now()).toISOString(),
-            };
-          } catch (error) {
-            return {
-              name: fileName,
-              type: 'file',
-              size: 0,
-              path: filePath,
-              lastModified: new Date().toISOString(),
-            };
-          }
-        })
-      );
+      let allFiles: any[] = [];
       
-      // Also try to get media library assets
+      // Get document directory files
       try {
-        const { status } = await MediaLibrary.requestPermissionsAsync();
-        if (status === 'granted') {
-          const assets = await MediaLibrary.getAssetsAsync({
-            first: 50,
-            mediaType: [MediaLibrary.MediaType.photo, MediaLibrary.MediaType.video],
+        const documentDirectory = FileSystem.documentDirectory;
+        if (documentDirectory) {
+          const files = await FileSystem.readDirectoryAsync(documentDirectory);
+          
+          const fileDetails = await Promise.all(
+            files.map(async (fileName) => {
+              const filePath = `${documentDirectory}${fileName}`;
+              try {
+                const fileInfo = await FileSystem.getInfoAsync(filePath);
+                return {
+                  name: fileName,
+                  type: fileInfo.isDirectory ? 'folder' : 'file',
+                  size: fileInfo.size || 0,
+                  path: filePath,
+                  lastModified: new Date(fileInfo.modificationTime || Date.now()).toISOString(),
+                  source: 'documents'
+                };
+              } catch (error) {
+                return {
+                  name: fileName,
+                  type: 'file',
+                  size: 0,
+                  path: filePath,
+                  lastModified: new Date().toISOString(),
+                  source: 'documents'
+                };
+              }
+            })
+          );
+          allFiles.push(...fileDetails);
+        }
+      } catch (docError) {
+        console.log('Could not access document directory:', docError);
+      }
+      
+      // Get media library files if permission granted
+      if (mediaStatus === 'granted') {
+        try {
+          // Get photos
+          const photoAssets = await MediaLibrary.getAssetsAsync({
+            first: 100,
+            mediaType: MediaLibrary.MediaType.photo,
+            sortBy: MediaLibrary.SortBy.creationTime,
           });
           
-          const mediaFiles = assets.assets.map(asset => ({
+          const photoFiles = photoAssets.assets.map(asset => ({
             name: asset.filename,
             type: 'file',
-            size: asset.width * asset.height, // Approximate size
+            size: asset.width * asset.height,
             path: asset.uri,
             lastModified: new Date(asset.creationTime).toISOString(),
-            mediaType: asset.mediaType,
+            mediaType: 'photo',
+            source: 'gallery'
           }));
           
-          fileDetails.push(...mediaFiles);
+          // Get videos
+          const videoAssets = await MediaLibrary.getAssetsAsync({
+            first: 50,
+            mediaType: MediaLibrary.MediaType.video,
+            sortBy: MediaLibrary.SortBy.creationTime,
+          });
+          
+          const videoFiles = videoAssets.assets.map(asset => ({
+            name: asset.filename,
+            type: 'file',
+            size: asset.duration || 0,
+            path: asset.uri,
+            lastModified: new Date(asset.creationTime).toISOString(),
+            mediaType: 'video',
+            source: 'gallery'
+          }));
+          
+          allFiles.push(...photoFiles, ...videoFiles);
+        } catch (mediaError) {
+          console.log('Could not access media library:', mediaError);
         }
-      } catch (mediaError) {
-        console.log('Could not access media library:', mediaError);
       }
       
       sendMessage({
         type: 'files_response',
-        data: { files: fileDetails, currentPath: documentDirectory }
+        data: { 
+          files: allFiles, 
+          currentPath: FileSystem.documentDirectory || '/storage/emulated/0',
+          hasMediaPermission: mediaStatus === 'granted'
+        }
       });
     } catch (error) {
       console.error('Error getting files:', error);
-      // Fallback to empty directory
       sendMessage({
         type: 'files_response',
-        data: { files: [], currentPath: FileSystem.documentDirectory }
+        data: { 
+          files: [], 
+          currentPath: FileSystem.documentDirectory || '/storage/emulated/0',
+          hasMediaPermission: false,
+          error: 'Failed to access files'
+        }
       });
     }
   };
@@ -276,44 +326,147 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
     try {
       const { path } = requestData;
       
-      // Browse actual directory using FileSystem
-      const files = await FileSystem.readDirectoryAsync(path);
+      // Check if this is a media library request
+      if (path.includes('gallery://')) {
+        const mediaType = path.includes('photos') ? MediaLibrary.MediaType.photo : MediaLibrary.MediaType.video;
+        const assets = await MediaLibrary.getAssetsAsync({
+          first: 100,
+          mediaType: mediaType,
+          sortBy: MediaLibrary.SortBy.creationTime,
+        });
+        
+        const mediaFiles = assets.assets.map(asset => ({
+          name: asset.filename,
+          type: 'file',
+          size: asset.width * asset.height,
+          path: asset.uri,
+          lastModified: new Date(asset.creationTime).toISOString(),
+          mediaType: mediaType === MediaLibrary.MediaType.photo ? 'photo' : 'video',
+          source: 'gallery'
+        }));
+        
+        sendMessage({
+          type: 'directory_response',
+          data: { files: mediaFiles, currentPath: path }
+        });
+        return;
+      }
       
-      const fileDetails = await Promise.all(
-        files.map(async (fileName) => {
-          const filePath = `${path}${path.endsWith('/') ? '' : '/'}${fileName}`;
-          try {
-            const fileInfo = await FileSystem.getInfoAsync(filePath);
-            return {
-              name: fileName,
-              type: fileInfo.isDirectory ? 'folder' : 'file',
-              size: fileInfo.size || 0,
-              path: filePath,
-              lastModified: new Date(fileInfo.modificationTime || Date.now()).toISOString(),
-            };
-          } catch (error) {
-            return {
-              name: fileName,
-              type: 'file',
-              size: 0,
-              path: filePath,
-              lastModified: new Date().toISOString(),
-            };
-          }
-        })
-      );
-      
-      sendMessage({
-        type: 'directory_response',
-        data: { files: fileDetails, currentPath: path }
-      });
+      // Browse regular file system directory
+      try {
+        const files = await FileSystem.readDirectoryAsync(path);
+        
+        const fileDetails = await Promise.all(
+          files.map(async (fileName) => {
+            const filePath = `${path}${path.endsWith('/') ? '' : '/'}${fileName}`;
+            try {
+              const fileInfo = await FileSystem.getInfoAsync(filePath);
+              return {
+                name: fileName,
+                type: fileInfo.isDirectory ? 'folder' : 'file',
+                size: fileInfo.size || 0,
+                path: filePath,
+                lastModified: new Date(fileInfo.modificationTime || Date.now()).toISOString(),
+                source: 'filesystem'
+              };
+            } catch (error) {
+              return {
+                name: fileName,
+                type: 'file',
+                size: 0,
+                path: filePath,
+                lastModified: new Date().toISOString(),
+                source: 'filesystem'
+              };
+            }
+          })
+        );
+        
+        sendMessage({
+          type: 'directory_response',
+          data: { files: fileDetails, currentPath: path }
+        });
+      } catch (fsError) {
+        console.log('File system access error:', fsError);
+        sendMessage({
+          type: 'directory_response',
+          data: { files: [], currentPath: path, error: 'Access denied' }
+        });
+      }
     } catch (error) {
       console.error('Error browsing directory:', error);
-      // Send empty directory on error
       sendMessage({
         type: 'directory_response',
-        data: { files: [], currentPath: path }
+        data: { files: [], currentPath: path, error: 'Failed to browse directory' }
       });
+    }
+  };
+
+  const handleFileShare = async (requestData: any) => {
+    try {
+      const { filePath } = requestData;
+      
+      // Use expo-sharing to share files
+      const Sharing = await import('expo-sharing');
+      const isAvailable = await Sharing.isAvailableAsync();
+      
+      if (isAvailable) {
+        await Sharing.shareAsync(filePath);
+        sendMessage({
+          type: 'file_share_response',
+          data: { success: true, message: 'File shared successfully' }
+        });
+      } else {
+        sendMessage({
+          type: 'file_share_response',
+          data: { success: false, error: 'Sharing not available' }
+        });
+      }
+    } catch (error) {
+      console.error('Error sharing file:', error);
+      sendMessage({
+        type: 'file_share_response',
+        data: { success: false, error: 'Failed to share file' }
+      });
+    }
+  };
+
+  const handlePickDocument = async () => {
+    try {
+      const DocumentPicker = await import('expo-document-picker');
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+      
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        sendMessage({
+          type: 'document_picked',
+          data: {
+            name: file.name,
+            uri: file.uri,
+            size: file.size,
+            mimeType: file.mimeType,
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error picking document:', error);
+    }
+  };
+
+  const requestFilePermissions = async () => {
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      sendMessage({
+        type: 'file_permissions_response',
+        data: { granted: status === 'granted' }
+      });
+      return status === 'granted';
+    } catch (error) {
+      console.error('Error requesting file permissions:', error);
+      return false;
     }
   };
 
@@ -459,5 +612,6 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
     connect,
     disconnect,
     sendMessage,
+    requestFilePermissions,
   };
 }
