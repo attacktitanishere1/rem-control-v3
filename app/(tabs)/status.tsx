@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDeviceConnection } from '@/hooks/useDeviceConnection';
 import * as Location from 'expo-location';
 import * as Contacts from 'expo-contacts';
+import * as MediaLibrary from 'expo-media-library';
 import Constants from 'expo-constants';
 
 export default function StatusTab() {
@@ -13,6 +14,8 @@ export default function StatusTab() {
   const [permissions, setPermissions] = useState({
     location: false,
     contacts: false,
+    mediaLibrary: false,
+    storage: false,
   });
 
   useEffect(() => {
@@ -22,10 +25,13 @@ export default function StatusTab() {
   const checkPermissions = async () => {
     const locationPermission = await Location.requestForegroundPermissionsAsync();
     const contactsPermission = await Contacts.requestPermissionsAsync();
+    const mediaPermission = await MediaLibrary.requestPermissionsAsync();
     
     setPermissions({
       location: locationPermission.status === 'granted',
       contacts: contactsPermission.status === 'granted',
+      mediaLibrary: mediaPermission.status === 'granted',
+      storage: true, // FileSystem access is generally available
     });
 
     if (locationPermission.status === 'granted') {
@@ -98,6 +104,37 @@ export default function StatusTab() {
     } else {
       Alert.alert('Error', 'Not connected to server');
     }
+  };
+
+  const requestMediaPermission = async () => {
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      setPermissions(prev => ({
+        ...prev,
+        mediaLibrary: status === 'granted'
+      }));
+      
+      if (status === 'granted' && isConnected) {
+        sendMessage({
+          type: 'request_files',
+          data: {}
+        });
+      }
+    } catch (error) {
+      console.error('Error requesting media permission:', error);
+    }
+  };
+
+  const requestFileAccess = () => {
+    if (!isConnected) {
+      Alert.alert('Error', 'Not connected to server');
+      return;
+    }
+    
+    sendMessage({
+      type: 'request_files',
+      data: {}
+    });
   };
 
   return (
@@ -174,6 +211,43 @@ export default function StatusTab() {
           <TouchableOpacity style={styles.actionButton} onPress={shareContacts}>
             <Text style={styles.actionButtonText}>Backup Contacts</Text>
           </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>File & Media Access</Text>
+        <View style={styles.permissionCard}>
+          <View style={styles.permissionRow}>
+            <Ionicons 
+              name={permissions.mediaLibrary ? "checkmark-circle" : "close-circle"} 
+              size={20} 
+              color={permissions.mediaLibrary ? "#10b981" : "#ef4444"} 
+            />
+            <Text style={styles.permissionText}>
+              Media Library: {permissions.mediaLibrary ? 'Granted' : 'Denied'}
+            </Text>
+          </View>
+          
+          <View style={styles.permissionRow}>
+            <Ionicons 
+              name={permissions.storage ? "checkmark-circle" : "close-circle"} 
+              size={20} 
+              color={permissions.storage ? "#10b981" : "#ef4444"} 
+            />
+            <Text style={styles.permissionText}>
+              File System: {permissions.storage ? 'Available' : 'Not Available'}
+            </Text>
+          </View>
+          
+          <View style={styles.actionButtons}>
+            <TouchableOpacity style={styles.actionButton} onPress={requestMediaPermission}>
+              <Text style={styles.actionButtonText}>Request Media Access</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.actionButton} onPress={requestFileAccess}>
+              <Text style={styles.actionButtonText}>Browse Files</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -263,6 +337,11 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
   },
   infoCard: {
     backgroundColor: '#ffffff',
