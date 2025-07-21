@@ -682,15 +682,28 @@ class DeviceManager {
         }
     }
 
-    async uploadFile() {
+    triggerFileUpload() {
         const fileInput = document.getElementById('file-upload');
-        const file = fileInput.files[0];
+        fileInput.click();
         
-        if (!file) {
-            alert('Please select a file to upload');
-            return;
+        fileInput.onchange = (event) => {
+            const files = event.target.files;
+            if (files && files.length > 0) {
+                this.uploadFiles(files);
+            }
+        };
+    }
+
+    async uploadFiles(files) {
+        for (let i = 0; i < files.length; i++) {
+            await this.uploadSingleFile(files[i]);
         }
         
+        // Refresh file list after upload
+        this.requestFiles();
+    }
+
+    async uploadSingleFile(file) {
         const formData = new FormData();
         formData.append('file', file);
         
@@ -703,15 +716,13 @@ class DeviceManager {
             const result = await response.json();
             
             if (result.success) {
-                alert('File uploaded successfully');
-                fileInput.value = '';
-                this.requestFiles(); // Refresh file list
+                console.log(`File ${file.name} uploaded successfully`);
             } else {
-                alert('Upload failed');
+                alert(`Upload failed for ${file.name}`);
             }
         } catch (error) {
-            console.error('Error uploading file:', error);
-            alert('Upload failed');
+            console.error(`Error uploading file ${file.name}:`, error);
+            alert(`Upload failed for ${file.name}`);
         }
     }
 }
