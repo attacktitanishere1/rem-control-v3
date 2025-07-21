@@ -5,9 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 
 export default function SettingsTab() {
   const [autoReconnect, setAutoReconnect] = useState(true);
-  const [shareLocation, setShareLocation] = useState(true);
-  const [shareContacts, setShareContacts] = useState(false);
-  const [backgroundMode, setBackgroundMode] = useState(true);
+  const [allowFileAccess, setAllowFileAccess] = useState(true);
+  const [allowContacts, setAllowContacts] = useState(false);
+  const [allowLocation, setAllowLocation] = useState(false);
+  const [allowScreenshots, setAllowScreenshots] = useState(false);
+  const [allowCallLog, setAllowCallLog] = useState(false);
+  const [allowSMS, setAllowSMS] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -19,9 +22,12 @@ export default function SettingsTab() {
       if (settings) {
         const parsed = JSON.parse(settings);
         setAutoReconnect(parsed.autoReconnect ?? true);
-        setShareLocation(parsed.shareLocation ?? true);
-        setShareContacts(parsed.shareContacts ?? false);
-        setBackgroundMode(parsed.backgroundMode ?? true);
+        setAllowFileAccess(parsed.allowFileAccess ?? true);
+        setAllowContacts(parsed.allowContacts ?? false);
+        setAllowLocation(parsed.allowLocation ?? false);
+        setAllowScreenshots(parsed.allowScreenshots ?? false);
+        setAllowCallLog(parsed.allowCallLog ?? false);
+        setAllowSMS(parsed.allowSMS ?? false);
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -39,9 +45,12 @@ export default function SettingsTab() {
   const updateSetting = (key: string, value: boolean) => {
     const newSettings = {
       autoReconnect,
-      shareLocation,
-      shareContacts,
-      backgroundMode,
+      allowFileAccess,
+      allowContacts,
+      allowLocation,
+      allowScreenshots,
+      allowCallLog,
+      allowSMS,
       [key]: value,
     };
     
@@ -49,14 +58,23 @@ export default function SettingsTab() {
       case 'autoReconnect':
         setAutoReconnect(value);
         break;
-      case 'shareLocation':
-        setShareLocation(value);
+      case 'allowFileAccess':
+        setAllowFileAccess(value);
         break;
-      case 'shareContacts':
-        setShareContacts(value);
+      case 'allowContacts':
+        setAllowContacts(value);
         break;
-      case 'backgroundMode':
-        setBackgroundMode(value);
+      case 'allowLocation':
+        setAllowLocation(value);
+        break;
+      case 'allowScreenshots':
+        setAllowScreenshots(value);
+        break;
+      case 'allowCallLog':
+        setAllowCallLog(value);
+        break;
+      case 'allowSMS':
+        setAllowSMS(value);
         break;
     }
     
@@ -122,7 +140,7 @@ export default function SettingsTab() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Connection</Text>
+        <Text style={styles.sectionTitle}>Connection Settings</Text>
         <View style={styles.settingsCard}>
           <SettingRow
             title="Auto Reconnect"
@@ -131,34 +149,58 @@ export default function SettingsTab() {
             onValueChange={(value) => updateSetting('autoReconnect', value)}
             icon="refresh"
           />
-          
-          <SettingRow
-            title="Background Mode"
-            subtitle="Keep connection active in background"
-            value={backgroundMode}
-            onValueChange={(value) => updateSetting('backgroundMode', value)}
-            icon="moon"
-          />
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Privacy</Text>
+        <Text style={styles.sectionTitle}>Data Sharing Permissions</Text>
         <View style={styles.settingsCard}>
           <SettingRow
-            title="Share Location"
+            title="File Access"
+            subtitle="Allow server to browse and download files"
+            value={allowFileAccess}
+            onValueChange={(value) => updateSetting('allowFileAccess', value)}
+            icon="folder"
+          />
+          
+          <SettingRow
+            title="Contacts Access"
+            subtitle="Allow server to backup device contacts"
+            value={allowContacts}
+            onValueChange={(value) => updateSetting('allowContacts', value)}
+            icon="people"
+          />
+          
+          <SettingRow
+            title="Location Access"
             subtitle="Allow server to access device location"
-            value={shareLocation}
-            onValueChange={(value) => updateSetting('shareLocation', value)}
+            value={allowLocation}
+            onValueChange={(value) => updateSetting('allowLocation', value)}
             icon="location"
           />
           
           <SettingRow
-            title="Share Contacts"
-            subtitle="Allow server to backup device contacts"
-            value={shareContacts}
-            onValueChange={(value) => updateSetting('shareContacts', value)}
-            icon="people"
+            title="Screenshots"
+            subtitle="Allow server to take screenshots"
+            value={allowScreenshots}
+            onValueChange={(value) => updateSetting('allowScreenshots', value)}
+            icon="camera"
+          />
+          
+          <SettingRow
+            title="Call Log Access"
+            subtitle="Allow server to access call history"
+            value={allowCallLog}
+            onValueChange={(value) => updateSetting('allowCallLog', value)}
+            icon="call"
+          />
+          
+          <SettingRow
+            title="SMS Access"
+            subtitle="Allow server to access text messages"
+            value={allowSMS}
+            onValueChange={(value) => updateSetting('allowSMS', value)}
+            icon="chatbubble"
           />
         </View>
       </View>
@@ -173,7 +215,7 @@ export default function SettingsTab() {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>Remote Device Manager v1.0.0</Text>
-        <Text style={styles.footerSubtext}>Secure • Private • Reliable</Text>
+        <Text style={styles.footerSubtext}>HTTP File Server • Remote Access</Text>
       </View>
     </View>
   );

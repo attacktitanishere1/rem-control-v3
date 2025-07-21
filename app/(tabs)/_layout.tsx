@@ -24,24 +24,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="status"
-        options={{
-          title: 'Status',
-          tabBarIcon: ({ size, color }) => (
-            <Ionicons name="pulse" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="call-log"
-        options={{
-          title: 'Calls',
-          tabBarIcon: ({ size, color }) => (
-            <Ionicons name="call" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',

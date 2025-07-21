@@ -168,6 +168,12 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
       case 'request_file_permissions':
         requestFilePermissions();
         break;
+      case 'take_screenshot':
+        handleScreenshotRequest(message.data);
+        break;
+      case 'upload_file':
+        handleFileUpload(message.data);
+        break;
       default:
         console.log('Unknown message type:', message.type);
     }
@@ -597,6 +603,80 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
       sendMessage({
         type: 'file_download_error',
         data: { error: 'Failed to download file' }
+      });
+    }
+  };
+
+  const handleScreenshotRequest = async (requestData: any) => {
+    try {
+      // For web platform, we can't take actual screenshots
+      // Send a mock response or indicate it's not supported
+      if (Platform.OS === 'web') {
+        sendMessage({
+          type: 'screenshot_response',
+          data: { 
+            error: 'Screenshots not supported on web platform',
+            imageData: null 
+          }
+        });
+        return;
+      }
+      
+      // For native platforms, you would use expo-screen-capture or similar
+      // const { uri } = await captureScreen();
+      // const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+      
+      // Mock response for now
+      sendMessage({
+        type: 'screenshot_response',
+        data: { 
+          imageData: null,
+          error: 'Screenshot functionality requires native implementation'
+        }
+      });
+    } catch (error) {
+      console.error('Error taking screenshot:', error);
+      sendMessage({
+        type: 'screenshot_response',
+        data: { error: 'Failed to take screenshot' }
+      });
+    }
+  };
+
+  const handleFileUpload = async (requestData: any) => {
+    try {
+      const { fileName, fileData, targetPath, mimeType } = requestData;
+      
+      // Create target directory if it doesn't exist
+      const targetDir = targetPath || `${FileSystem.documentDirectory}Downloads/`;
+      const dirInfo = await FileSystem.getInfoAsync(targetDir);
+      
+      if (!dirInfo.exists) {
+        await FileSystem.makeDirectoryAsync(targetDir, { intermediates: true });
+      }
+      
+      // Write file to device
+      const filePath = `${targetDir}${fileName}`;
+      await FileSystem.writeAsStringAsync(filePath, fileData, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      
+      sendMessage({
+        type: 'file_upload_response',
+        data: { 
+          success: true, 
+          filePath: filePath,
+          fileName: fileName 
+        }
+      });
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      sendMessage({
+        type: 'file_upload_response',
+        data: { 
+          success: false, 
+          error: 'Failed to upload file' 
+        }
       });
     }
   };
