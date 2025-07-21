@@ -112,8 +112,12 @@ function handleDeviceMessage(ws, message) {
       break;
       
     case 'directory_response':
-      updateDeviceData(ws, 'files', message.data.files);
-      updateDeviceData(ws, 'currentPath', message.data.currentPath);
+      // Handle both files array and files object structure
+      const filesData = message.data.files || message.data;
+      updateDeviceData(ws, 'files', Array.isArray(filesData) ? filesData : filesData.files || []);
+      if (message.data.currentPath) {
+        updateDeviceData(ws, 'currentPath', message.data.currentPath);
+      }
       console.log('Directory browsed for device');
       break;
       
@@ -305,6 +309,9 @@ app.post('/api/devices/:deviceId/browse-directory', (req, res) => {
   }
   
   const { path } = req.body;
+  
+  // Update the device's current path immediately
+  device.currentPath = path;
   
   device.ws.send(JSON.stringify({
     type: 'browse_directory',
