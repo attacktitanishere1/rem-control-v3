@@ -215,16 +215,24 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
 
   const handleFilesRequest = async () => {
     try {
-      // Request media library permissions first
+      console.log('Starting file request...');
+      
+      // Request all necessary permissions
       const { status: mediaStatus } = await MediaLibrary.requestPermissionsAsync();
+      console.log('Media permission status:', mediaStatus);
       
       let allFiles: any[] = [];
-      
-      // Get document directory files
+      let hasErrors = false;
+      let errorMessages: string[] = [];
+
+      // 1. Get document directory files (always accessible)
       try {
         const documentDirectory = FileSystem.documentDirectory;
+        console.log('Document directory:', documentDirectory);
+        
         if (documentDirectory) {
           const files = await FileSystem.readDirectoryAsync(documentDirectory);
+          console.log('Document files found:', files.length);
           
           const fileDetails = await Promise.all(
             files.map(async (fileName) => {
@@ -237,16 +245,19 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
                   size: fileInfo.size || 0,
                   path: filePath,
                   lastModified: new Date(fileInfo.modificationTime || Date.now()).toISOString(),
-                  source: 'documents'
+                  source: 'documents',
+                  extension: fileName.split('.').pop()?.toLowerCase() || ''
                 };
               } catch (error) {
+                console.log('Error getting file info for:', fileName, error);
                 return {
                   name: fileName,
                   type: 'file',
                   size: 0,
                   path: filePath,
                   lastModified: new Date().toISOString(),
-                  source: 'documents'
+                  source: 'documents',
+                  extension: fileName.split('.').pop()?.toLowerCase() || ''
                 };
               }
             })
@@ -254,58 +265,146 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
           allFiles.push(...fileDetails);
         }
       } catch (docError) {
-        console.log('Could not access document directory:', docError);
+        console.error('Document directory error:', docError);
+        hasErrors = true;
+        errorMessages.push('Could not access document directory');
       }
       
-      // Get media library files if permission granted
+      // 2. Get cache directory files
+      try {
+        const cacheDirectory = FileSystem.cacheDirectory;
+        console.log('Cache directory:', cacheDirectory);
+        
+        if (cacheDirectory) {
+          const files = await FileSystem.readDirectoryAsync(cacheDirectory);
+          console.log('Cache files found:', files.length);
+          
+          const fileDetails = await Promise.all(
+            files.slice(0, 20).map(async (fileName) => { // Limit cache files
+              const filePath = `${cacheDirectory}${fileName}`;
+              try {
+                const fileInfo = await FileSystem.getInfoAsync(filePath);
+                return {
+                  name: fileName,
+                  type: fileInfo.isDirectory ? 'folder' : 'file',
+                  size: fileInfo.size || 0,
+                  path: filePath,
+                  lastModified: new Date(fileInfo.modificationTime || Date.now()).toISOString(),
+                  source: 'cache',
+                  extension: fileName.split('.').pop()?.toLowerCase() || ''
+                };
+              } catch (error) {
+                return null;
+              }
+            })
+          );
+          
+          const validFiles = fileDetails.filter(file => file !== null);
+          allFiles.push(...validFiles);
+        }
+      } catch (cacheError) {
+        console.log('Cache directory error:', cacheError);
+      }
+
+      // 3. Get media library files if permission granted
       if (mediaStatus === 'granted') {
         try {
-          // Get photos
+          console.log('Getting photos from media library...');
           const photoAssets = await MediaLibrary.getAssetsAsync({
-            first: 100,
+            first: 50,
             mediaType: MediaLibrary.MediaType.photo,
             sortBy: MediaLibrary.SortBy.creationTime,
           });
+          console.log('Photos found:', photoAssets.assets.length);
           
           const photoFiles = photoAssets.assets.map(asset => ({
             name: asset.filename,
             type: 'file',
-            size: asset.width * asset.height,
+            size: asset.width * asset.height, // Approximate size
             path: asset.uri,
             lastModified: new Date(asset.creationTime).toISOString(),
             mediaType: 'photo',
-            source: 'gallery'
+            source: 'gallery',
+            extension: asset.filename.split('.').pop()?.toLowerCase() || 'jpg'
           }));
           
-          // Get videos
+          console.log('Getting videos from media library...');
           const videoAssets = await MediaLibrary.getAssetsAsync({
-            first: 50,
+            first: 20,
             mediaType: MediaLibrary.MediaType.video,
             sortBy: MediaLibrary.SortBy.creationTime,
           });
+          console.log('Videos found:', videoAssets.assets.length);
           
           const videoFiles = videoAssets.assets.map(asset => ({
             name: asset.filename,
             type: 'file',
-            size: asset.duration || 0,
+            size: asset.duration * 1000 || 0, // Duration in ms as size approximation
             path: asset.uri,
             lastModified: new Date(asset.creationTime).toISOString(),
             mediaType: 'video',
-            source: 'gallery'
+            source: 'gallery',
+            extension: asset.filename.split('.').pop()?.toLowerCase() || 'mp4'
           }));
           
           allFiles.push(...photoFiles, ...videoFiles);
         } catch (mediaError) {
-          console.log('Could not access media library:', mediaError);
+          console.error('Media library error:', mediaError);
+          hasErrors = true;
+          errorMessages.push('Could not access media library');
         }
+      } else {
+        console.log('Media permission not granted');
+        errorMessages.push('Media library permission not granted');
       }
+      
+      // 4. Add some sample folders for navigation
+      const sampleFolders = [
+        {
+          name: 'Documents',
+          type: 'folder',
+          size: 0,
+          path: FileSystem.documentDirectory || '/documents',
+          lastModified: new Date().toISOString(),
+          source: 'system',
+          extension: ''
+        },
+        {
+          name: 'Photos',
+          type: 'folder',
+          size: 0,
+          path: 'gallery://photos',
+          lastModified: new Date().toISOString(),
+          source: 'system',
+          extension: ''
+        },
+        {
+          name: 'Videos',
+          type: 'folder',
+          size: 0,
+          path: 'gallery://videos',
+          lastModified: new Date().toISOString(),
+          source: 'system',
+          extension: ''
+        }
+      ];
+      
+      // Add sample folders if we don't have many files
+      if (allFiles.length < 5) {
+        allFiles.unshift(...sampleFolders);
+      }
+      
+      console.log('Total files found:', allFiles.length);
       
       sendMessage({
         type: 'files_response',
         data: { 
           files: allFiles, 
           currentPath: FileSystem.documentDirectory || '/storage/emulated/0',
-          hasMediaPermission: mediaStatus === 'granted'
+          hasMediaPermission: mediaStatus === 'granted',
+          totalFiles: allFiles.length,
+          hasErrors,
+          errorMessages
         }
       });
     } catch (error) {
@@ -316,7 +415,9 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
           files: [], 
           currentPath: FileSystem.documentDirectory || '/storage/emulated/0',
           hasMediaPermission: false,
-          error: 'Failed to access files'
+          error: 'Failed to access files: ' + error.message,
+          hasErrors: true,
+          errorMessages: ['Failed to access files']
         }
       });
     }
