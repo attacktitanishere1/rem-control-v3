@@ -12,6 +12,12 @@ export default function TabLayout() {
           backgroundColor: '#ffffff',
           borderTopWidth: 1,
           borderTopColor: '#e5e7eb',
+          height: 60,
+          paddingBottom: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '500',
         },
       }}>
       <Tabs.Screen
@@ -20,6 +26,42 @@ export default function TabLayout() {
           title: 'Connection',
           tabBarIcon: ({ size, color }) => (
             <Ionicons name="link" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="status"
+        options={{
+          title: 'Status',
+          tabBarIcon: ({ size, color }) => (
+            <Ionicons name="information-circle" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="gps"
+        options={{
+          title: 'GPS',
+          tabBarIcon: ({ size, color }) => (
+            <Ionicons name="location" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="contacts"
+        options={{
+          title: 'Contacts',
+          tabBarIcon: ({ size, color }) => (
+            <Ionicons name="people" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="files"
+        options={{
+          title: 'Files',
+          tabBarIcon: ({ size, color }) => (
+            <Ionicons name="folder" size={size} color={color} />
           ),
         }}
       />

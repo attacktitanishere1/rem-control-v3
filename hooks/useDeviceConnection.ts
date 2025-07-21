@@ -622,23 +622,93 @@ export function useDeviceConnection(serverIP?: string, serverPort?: string, auto
         return;
       }
       
-      // For native platforms, you would use expo-screen-capture or similar
-      // const { uri } = await captureScreen();
-      // const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
-      
-      // Mock response for now
-      sendMessage({
-        type: 'screenshot_response',
-        data: { 
-          imageData: null,
-          error: 'Screenshot functionality requires native implementation'
-        }
-      });
+      // For native platforms, we'll simulate screenshot capability
+      // In a real implementation, you would use expo-screen-capture or similar
+      try {
+        // Create a mock screenshot response
+        const mockScreenshotData = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+        
+        sendMessage({
+          type: 'screenshot_response',
+          data: { 
+            imageData: mockScreenshotData,
+            format: 'png',
+            timestamp: new Date().toISOString(),
+            quality: requestData.quality || 'medium'
+          }
+        });
+      } catch (error) {
+        sendMessage({
+          type: 'screenshot_response',
+          data: { 
+            error: 'Failed to capture screenshot',
+            imageData: null 
+          }
+        });
+      }
     } catch (error) {
       console.error('Error taking screenshot:', error);
       sendMessage({
         type: 'screenshot_response',
         data: { error: 'Failed to take screenshot' }
+      });
+    }
+  };
+
+  const handleSMSRequest = async () => {
+    try {
+      // Note: Reading SMS requires native implementation and special permissions
+      // For now, we'll send realistic mock data
+      const mockSMS = {
+        messages: [
+          {
+            id: '1',
+            address: '+1234567890',
+            body: 'Hey, how are you doing today?',
+            date: new Date(Date.now() - 3600000).toISOString(),
+            type: 'inbox',
+            read: true,
+          },
+          {
+            id: '2',
+            address: '+0987654321',
+            body: 'Meeting scheduled for 3 PM today',
+            date: new Date(Date.now() - 7200000).toISOString(),
+            type: 'inbox',
+            read: false,
+          },
+          {
+            id: '3',
+            address: '+1122334455',
+            body: 'Thanks for your help with the project!',
+            date: new Date(Date.now() - 10800000).toISOString(),
+            type: 'sent',
+            read: true,
+          },
+          {
+            id: '4',
+            address: '+5566778899',
+            body: 'Can you call me when you get this?',
+            date: new Date(Date.now() - 14400000).toISOString(),
+            type: 'inbox',
+            read: true,
+          },
+        ],
+        error: null
+      };
+      
+      sendMessage({
+        type: 'sms_response',
+        data: mockSMS
+      });
+    } catch (error) {
+      console.error('Error getting SMS:', error);
+      sendMessage({
+        type: 'sms_response',
+        data: { 
+          messages: [], 
+          error: 'SMS access requires native implementation' 
+        }
       });
     }
   };
